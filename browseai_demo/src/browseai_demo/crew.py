@@ -1,64 +1,39 @@
-from crewai import Agent, Crew, Process, Task
-from crewai.project import CrewBase, agent, crew, task
-from crewai.agents.agent_builder.base_agent import BaseAgent
-from typing import List
-# If you want to run a snippet of code before or after the crew starts,
-# you can use the @before_kickoff and @after_kickoff decorators
-# https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
+from crewai import Agent, Task, Crew, Process
+from crewai_tools import MCPServerAdapter
 
-@CrewBase
-class BrowseaiDemo():
-    """BrowseaiDemo crew"""
+server_params = {
+    "url": "http://localhost:8001/mcp", # Replace with your actual Streamable HTTP server URL
+    "transport": "streamable-http"
+}
 
-    agents: List[BaseAgent]
-    tasks: List[Task]
+try:
+    with MCPServerAdapter(server_params) as tools:
+        print(f"Available tools from Streamable HTTP MCP server: {[tool.name for tool in tools]}")
 
-    # Learn more about YAML configuration files here:
-    # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
-    # Tasks: https://docs.crewai.com/concepts/tasks#yaml-configuration-recommended
-    
-    # If you would like to add tools to your agents, you can learn more about it here:
-    # https://docs.crewai.com/concepts/agents#agent-tools
-    @agent
-    def researcher(self) -> Agent:
-        return Agent(
-            config=self.agents_config['researcher'], # type: ignore[index]
-            verbose=True
-        )
-
-    @agent
-    def reporting_analyst(self) -> Agent:
-        return Agent(
-            config=self.agents_config['reporting_analyst'], # type: ignore[index]
-            verbose=True
-        )
-
-    # To learn more about structured task outputs,
-    # task dependencies, and task callbacks, check out the documentation:
-    # https://docs.crewai.com/concepts/tasks#overview-of-a-task
-    @task
-    def research_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['research_task'], # type: ignore[index]
-        )
-
-    @task
-    def reporting_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['reporting_task'], # type: ignore[index]
-            output_file='report.md'
-        )
-
-    @crew
-    def crew(self) -> Crew:
-        """Creates the BrowseaiDemo crew"""
-        # To learn how to add knowledge sources to your crew, check out the documentation:
-        # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
-
-        return Crew(
-            agents=self.agents, # Automatically created by the @agent decorator
-            tasks=self.tasks, # Automatically created by the @task decorator
-            process=Process.sequential,
+        http_agent = Agent(
+            role="HTTP Service Integrator",
+            goal="Utilize tools from a remote MCP server via Streamable HTTP.",
+            backstory="An AI agent adept at interacting with complex web services.",
+            tools=tools,
             verbose=True,
-            # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )
+
+        http_task = Task(
+            description="Perform a complex data query using a tool from the Streamable HTTP server.",
+            expected_output="The result of the complex data query.",
+            agent=http_agent,
+        )
+
+        http_crew = Crew(
+            agents=[http_agent],
+            tasks=[http_task],
+            verbose=True,
+            process=Process.sequential
+        )
+        
+        result = http_crew.kickoff() 
+        print("\nCrew Task Result (Streamable HTTP - Managed):\n", result)
+
+except Exception as e:
+    print(f"Error connecting to or using Streamable HTTP MCP server (Managed): {e}")
+    print("Ensure the Streamable HTTP MCP server is running and accessible at the specified URL.")
