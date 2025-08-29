@@ -34,3 +34,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+# uv
+uv.lock
+.uv/
+.venv/
+
+# venv
+venv/
+
+# pycache
+__pycache__/
